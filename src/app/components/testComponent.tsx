@@ -1,82 +1,73 @@
-import React, { useEffect, useState } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import React, { useState } from "react";
 
+// Sample 2D box data — now uses x, y instead of 3D positions
 const testBoxData = [
   {
     color: "#3b82f6",
-    metalness: 0.3,
-    roughness: 0.6,
-    opacity: 0.9,
-    transparent: true,
-    position: [2, 1, -3] as [number, number, number],
-    size: [2, 1, 1] as [number, number, number],
+    position: [200, 150] as [number, number],
+    size: [120, 80] as [number, number],
   },
   {
     color: "#ef4444",
-    metalness: 0.1,
-    roughness: 0.9,
-    opacity: 1,
-    transparent: false,
-    position: [-2, 0, 1] as [number, number, number],
-    size: [1, 2, 1] as [number, number, number],
+    position: [400, 300] as [number, number],
+    size: [100, 160] as [number, number],
   },
 ];
 
 type BoxData = {
   color: string;
-  metalness: number;
-  roughness: number;
-  opacity: number;
-  transparent: boolean;
-  position: [number, number, number];
-  size: [number, number, number];
+  position: [number, number];
+  size: [number, number];
 };
 
+
 function Box({ data }: { data: BoxData }) {
+  const [x, y] = data.position;
+  const [width, height] = data.size;
   return (
-    <mesh position={data.position}>
-      <boxGeometry args={data.size} />
-      <meshStandardMaterial
-        color={data.color}
-        metalness={data.metalness}
-        roughness={data.roughness}
-        opacity={data.opacity}
-        transparent={data.transparent}
-      />
-    </mesh>
+    <rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      fill={data.color}
+      stroke="black"
+      strokeWidth="2"
+      rx="8"
+      ry="8"
+    />
   );
 }
 
-const testComponent = () => {
+const TestComponent = () => {
   const [showBox, setShowBox] = useState(false);
-  const [boxData, setBoxData] = useState(null);
-
-  useEffect(() => {});
 
   return (
-    <div style={{ width: "100vw", height: "100vh" }}>
+    <div className="relative w-screen h-screen flex items-center justify-center bg-gray-100">
+     
       <button
-        style={{
-          position: "absolute",
-          zIndex: 1,
-          top: 20,
-          left: 20,
-          padding: "8px 16px",
-        }}
+        className="relative top-6 left-6 z-10 px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition w-[200px]"
         onClick={() => setShowBox(!showBox)}
       >
-        {showBox ? "Remove Box" : "Add Box"}
+        {showBox ? "Remove Boxes" : "Add Boxes"}
       </button>
 
-      <Canvas camera={{ position: [3, 3, 3] }}>
-        <ambientLight />
-        <pointLight position={[5, 5, 5]} />
-        {showBox && testBoxData.map((box, i) => <Box key={i} data={box} />)}
-        {/* <OrbitControls /> */}
-      </Canvas>
+    
+      <div className="w-[640px] h-[800px] border-2 border-blue-500 rounded-lg flex items-center justify-center bg-white shadow-lg">
+        <svg
+          width="600"
+          height="760"
+          className="rounded-md bg-gray-50"
+          style={{ overflow: "visible" }}
+        >
+        
+          {showBox &&
+            testBoxData.map((box, i) => <Box key={i} data={box} />)}
+        </svg>
+      </div>
+      <button>test button</button>
     </div>
   );
 };
 
-export default testComponent;
+export default TestComponent;
