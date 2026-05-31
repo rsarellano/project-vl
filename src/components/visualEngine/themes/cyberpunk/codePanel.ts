@@ -7,6 +7,7 @@ export const cyberpunkCodePanelTheme: CodePanelTheme = {
   stroke: CYBERPUNK_TOKENS.primaryNeon,
   strokeWidth: 1.5,
   radius: 12,
+  highlightRadius: 12,
   labelColor: CYBERPUNK_TOKENS.textDim,
   monoFont: CYBERPUNK_TOKENS.monoFont,
   syntax: {

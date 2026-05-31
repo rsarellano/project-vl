@@ -104,7 +104,7 @@ export const Stage = forwardRef<StageHandle, StageProps>(function Stage(
   // below or beside it — still reads as the active theme.
   return (
     <div
-      className="flex min-h-full w-max min-w-full items-center justify-center p-4"
+      className="flex min-h-full w-max min-w-full items-start justify-start p-4"
       style={{ backgroundColor: themeObj.canvasColor }}
     >
       <svg

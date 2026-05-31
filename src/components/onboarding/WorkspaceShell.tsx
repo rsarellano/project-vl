@@ -4,11 +4,13 @@ import { useCallback, useState } from "react";
 import TestPage from "@/components/testPage";
 import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { PreferencesSummary } from "@/components/onboarding/PreferencesSummary";
+import { useDiagramTheme } from "@/hooks/useDiagramTheme";
 import { useLearningPreferences } from "@/hooks/useLearningPreferences";
 import type { UserLearningPreferences } from "@/lib/userPreferences";
 
 export function WorkspaceShell() {
   const { prefs, ready, save, hasPrefs } = useLearningPreferences();
+  const { theme, setTheme, ready: themeReady } = useDiagramTheme();
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const handleComplete = useCallback(
@@ -23,7 +25,7 @@ export function WorkspaceShell() {
     setShowOnboarding(true);
   }, []);
 
-  if (!ready) {
+  if (!ready || !themeReady) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-100 text-slate-600">
         Loading workspace…
@@ -37,10 +39,15 @@ export function WorkspaceShell() {
     <div className="flex h-screen flex-col overflow-hidden">
       <OnboardingModal open={modalOpen} onComplete={handleComplete} />
       {prefs && !modalOpen ? (
-        <PreferencesSummary preferences={prefs} onChange={handleChangePreferences} />
+        <PreferencesSummary
+          preferences={prefs}
+          theme={theme}
+          onThemeChange={setTheme}
+          onChange={handleChangePreferences}
+        />
       ) : null}
       <div className="min-h-0 flex-1">
-        <TestPage preferences={prefs} />
+        <TestPage preferences={prefs} theme={theme} onThemeChange={setTheme} />
       </div>
     </div>
   );

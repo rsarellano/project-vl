@@ -6,13 +6,22 @@ import {
   USAGE_CONTEXTS,
   type UserLearningPreferences,
 } from "@/lib/userPreferences";
+import { ThemeSelect } from "@/components/visualEngine/ThemeSelect";
+import type { ThemeName } from "@/components/visualEngine/themes";
 
 type PreferencesSummaryProps = {
   preferences: UserLearningPreferences;
+  theme: ThemeName;
+  onThemeChange: (theme: ThemeName) => void;
   onChange: () => void;
 };
 
-export function PreferencesSummary({ preferences, onChange }: PreferencesSummaryProps) {
+export function PreferencesSummary({
+  preferences,
+  theme,
+  onThemeChange,
+  onChange,
+}: PreferencesSummaryProps) {
   const usage =
     USAGE_CONTEXTS.find((u) => u.id === preferences.usageContext)?.label ?? preferences.usageContext;
   const subject =
@@ -34,13 +43,20 @@ export function PreferencesSummary({ preferences, onChange }: PreferencesSummary
             Saved in this browser
           </span>
         </div>
-        <button
-          type="button"
-          onClick={onChange}
-          className="text-sm font-medium text-blue-700 hover:underline dark:text-blue-400"
-        >
-          Change setup
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <ThemeSelect
+            id="workspace-theme"
+            value={theme}
+            onChange={onThemeChange}
+          />
+          <button
+            type="button"
+            onClick={onChange}
+            className="text-sm font-medium text-blue-700 hover:underline dark:text-blue-400"
+          >
+            Change setup
+          </button>
+        </div>
       </div>
     </div>
   );
