@@ -13,8 +13,8 @@ import { isBoxCreationItem, isCodeDisplayItem } from "@/types/infographics";
  */
 
 export const CODE_MAP_LAYOUT = {
-  originX: 56,
-  originY: 56,
+  originX: 120,
+  originY: 240,
   codePanelWidth: 540,
   codePadding: 24,
   /** Vertical space reserved for the language label above the code lines. */
@@ -28,13 +28,13 @@ export const CODE_MAP_LAYOUT = {
   highlightPadX: 10,
   highlightPadY: 6,
   /** Gap between code panel right edge and explanation boxes. */
-  explainGap: 112,
+  explainGap: 44,
   explainBoxWidth: 268,
   explainPadding: 18,
   explainLineHeight: 16,
   explainMinHeight: 80,
   /** Minimum vertical gap between stacked explanation boxes. */
-  explainMinGap: 10,
+  explainMinGap: 102,
   /** Distance left of explanation boxes where connector elbows turn vertical. */
   connectorApproachGap: 28,
   /** Inset from code panel / explain column when distributing connector lanes. */
@@ -63,12 +63,10 @@ export const CODE_HIGHLIGHT = {
   labelColor: "#fbbf24",
 } as const;
 
-/** Portion name (Setup, Scan, …) rendered above each explanation box. */
+/** Portion name (INIT, CHECK, …) rendered inside the top of each explanation box. */
 export const EXPLAIN_LABEL = {
   fontSize: 11,
-  fontWeight: 600,
-  /** Distance above the top edge of the explanation box. */
-  offsetY: 14,
+  fontWeight: 700,
   color: CODE_HIGHLIGHT.labelColor,
   monoFont: '"JetBrains Mono", "Fira Code", "Courier New", monospace',
 } as const;
@@ -96,7 +94,7 @@ export type ResolvedPortionLayout = CodePortion & {
 export type ResolvedExplainLayout = {
   id: string;
   linkedPortion: string;
-  /** Human-readable portion name shown above the explanation box (e.g. "Setup"). */
+  /** Portion name shown inside the box (e.g. "Setup") — from ``portions[].label``. */
   portionLabel?: string;
   x: number;
   y: number;
@@ -177,8 +175,21 @@ export function getCodeMapExplanationObjects(
   );
 }
 
-function resolveExplainHeight(text: string | string[] | undefined): number {
-  const lines = getTextLines(text);
+/** Label row + spacer + body lines rendered inside the explanation box. */
+export function explainBoxDisplayLines(
+  text: string | string[] | undefined,
+  portionLabel?: string,
+): string[] {
+  const body = getTextLines(text);
+  if (!portionLabel?.trim()) return body;
+  return [portionLabel.trim().toUpperCase(), "", ...body];
+}
+
+function resolveExplainHeight(
+  text: string | string[] | undefined,
+  portionLabel?: string,
+): number {
+  const lines = explainBoxDisplayLines(text, portionLabel);
   const { explainPadding, explainLineHeight, explainMinHeight } = CODE_MAP_LAYOUT;
   return Math.max(
     explainMinHeight,
@@ -233,10 +244,6 @@ function resolvePortionHighlight(
   };
 }
 
-function explainLabelClearance(): number {
-  return EXPLAIN_LABEL.offsetY + EXPLAIN_LABEL.fontSize + 6;
-}
-
 type ExplainLayoutDraft = {
   explain: CodeMapExplanationObject;
   portion: ResolvedPortionLayout;
@@ -247,8 +254,7 @@ type ExplainLayoutDraft = {
 
 /**
  * Stack explanation boxes in teaching order, anchored to each highlight row.
- * Only nudge downward when boxes would overlap — labels sit above each box so
- * they do not consume vertical gap between boxes.
+ * Only nudge downward when boxes would overlap.
  */
 function resolveExplanationPositions(
   drafts: ExplainLayoutDraft[],
@@ -386,7 +392,7 @@ export function resolveCodeMapLayout(stage: DrawingStage): ResolvedCodeMapLayout
     const explain = explainByPortion.get(portion.id);
     if (!explain) return;
 
-    const height = resolveExplainHeight(explain.text);
+    const height = resolveExplainHeight(explain.text, portion.label);
     const idealY =
       portion.highlight.y + portion.highlight.height / 2 - height / 2;
 
@@ -399,7 +405,7 @@ export function resolveCodeMapLayout(stage: DrawingStage): ResolvedCodeMapLayout
     });
   });
 
-  const minExplainTopY = codePanel.y - explainLabelClearance();
+  const minExplainTopY = codePanel.y;
   const resolvedExplanations = resolveExplanationPositions(
     explainDrafts,
     explainX,
@@ -462,9 +468,12 @@ export function computeCodeMapViewBox(stage: DrawingStage): { width: number; hei
   if (!layout) {
     return { width: stage.width, height: stage.height };
   }
+  // Reserve space for optional click-to-expand detail branch under explanation boxes.
+  const interactiveDetailReserve = 320;
+  const interactiveDetailWidthReserve = 460;
   return {
-    width: Math.max(stage.width, layout.width),
-    height: Math.max(stage.height, layout.height),
+    width: Math.max(stage.width, layout.width + interactiveDetailWidthReserve),
+    height: Math.max(stage.height, layout.height + interactiveDetailReserve),
   };
 }
 
@@ -499,7 +508,7 @@ export function getCodeMapAnimationEntries(stage: DrawingStage): {
 export function toExplainBoxSpec(explain: ResolvedExplainLayout) {
   return {
     id: explain.id,
-    text: explain.text,
+    text: explainBoxDisplayLines(explain.text, explain.portionLabel),
     x: explain.x,
     y: explain.y,
     width: explain.width,

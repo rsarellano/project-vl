@@ -47,10 +47,10 @@ const APPS: AppInfo[] = [
     port: ":3000",
     stack: "Next.js 15 · React 19 · GSAP · Tailwind 4",
     role: "Production UI — landing, auth, workspace, SVG visual engine, theme picker, zoom, export.",
-    entry: "src/app/app/page.tsx → WorkspaceShell → testPage.tsx",
+    entry: "src/app/app/page.tsx → WorkspaceShell → VisualPage.tsx",
     highlights: [
       "visualEngine/ — Stage, CodeMapStage, DrawingStage, themes/",
-      "layouts/codeMapLayout.ts — code-map geometry + connectors",
+      "layouts/codeMapLayout.ts — code-map geometry, spacing, connector lanes",
       "lib/api.ts — POST /api/answers/ · GET samples/two-sum",
       "types/infographics.ts — TS mirror of DrawingStage contract",
     ],
@@ -76,12 +76,12 @@ const FLOW_NODES: FlowNodeMeta[] = [
   {
     id: "user",
     label: "User",
-    detail: "Types a question in TestPage textarea",
+    detail: "Types a question in VisualPage textarea",
     layer: "Browser",
   },
   {
-    id: "testpage",
-    label: "TestPage",
+    id: "visualpage",
+    label: "VisualPage",
     detail: "Theme picker · zoom · narration · export SVG/PNG",
     layer: "Frontend",
   },
@@ -124,7 +124,7 @@ const FLOW_NODES: FlowNodeMeta[] = [
   {
     id: "pasted",
     label: "pasted_code.py",
-    detail: "Extract snippet from prompt; sanitizer injects if AI mismatches",
+    detail: "Extract snippet from prompt; max 80-line coding snippet guard for code-map",
     layer: "Backend",
   },
   {
@@ -160,7 +160,7 @@ const FLOW_NODES: FlowNodeMeta[] = [
   {
     id: "codemap",
     label: "CodeMapStage",
-    detail: "Code panel + highlights + explain boxes + auto connectors",
+    detail: "Code panel + highlights + explain boxes + click-to-expand second branches",
     layer: "Render",
   },
   {
@@ -184,8 +184,8 @@ const FLOW_NODES: FlowNodeMeta[] = [
 ];
 
 const FLOW_EDGES = [
-  { from: "user", to: "testpage" },
-  { from: "testpage", to: "api" },
+  { from: "user", to: "visualpage" },
+  { from: "visualpage", to: "api" },
   { from: "api", to: "router" },
   { from: "router", to: "service" },
   { from: "service", to: "classifier" },
@@ -207,10 +207,13 @@ const FLOW_EDGES = [
 const VISUAL_ENGINE_FILES = [
   { file: "Stage.tsx", role: "SVG canvas wrapper, computeViewBox, theme bg, zoom prop" },
   { file: "DrawingStage.tsx", role: "Routes layoutMode: trunk vs code-map" },
-  { file: "CodeMapStage.tsx", role: "Code panel + highlights + explain boxes + connectors" },
-  { file: "layouts/codeMapLayout.ts", role: "Code-map geometry, stacking, connector lanes" },
+  { file: "CodeMapStage.tsx", role: "Code panel + highlights + expandable detail branches" },
+  { file: "layouts/codeMapLayout.ts", role: "Code-map geometry, spacing, connector lanes, viewBox reserve" },
   { file: "objectConditions/codeDisplay.tsx", role: "Code panel chrome, HTML syntax, highlights" },
-  { file: "objectConditions/codeMapExplanation.tsx", role: "LinkedPortion explanation boxes" },
+  {
+    file: "objectConditions/codeMapExplanation.tsx",
+    role: "Renders main explanation boxes; click toggles second-branch detail cards with wrapped text and loop-check iteration drilldown",
+  },
   { file: "objectConditions/codeMapLineCreation.tsx", role: "L-shaped highlight → explain connectors" },
   { file: "drawingStageTimeline.ts", role: "GSAP — opacity-only for code-map, y-fade for trunk" },
   { file: "objectConditions/boxCreation.tsx", role: "Trunk horizontal layout · stroke 2.5 · hover" },
@@ -221,11 +224,11 @@ const VISUAL_ENGINE_FILES = [
 ];
 
 const AI_PIPELINE_FILES = [
-  { file: "answer_service.py", role: "Main orchestrator — LLM call, persist, derive answer text" },
+  { file: "answer_service.py", role: "Main orchestrator + rejects pasted code over 80 lines" },
   { file: "drawing_stage_prompts.py", role: "DRAWING_STAGE_SYSTEM + DRAWING_STAGE_CODE_MAP_SYSTEM" },
-  { file: "pasted_code.py", role: "Detect/extract pasted snippets; language inference" },
+  { file: "pasted_code.py", role: "Detect/extract pasted snippets; line-count detection + snippet cap" },
   { file: "drawing_stage_objects.py", role: "Sanitizer + code-map normalize + inject pasted code" },
-  { file: "question_type_identifier.py", role: "Keyword classifier — code_explain vs code_solution" },
+  { file: "question_type_identifier.py", role: "Classifier: pasted code defaults to code_explain unless explicit loop trace intent" },
   { file: "drawing_stage_samples.py", role: "Static while-loop + two-sum code-map samples" },
   { file: "infographics_schema.py", role: "Pydantic DrawingStage — CodeDisplay + layoutMode" },
 ];
@@ -244,14 +247,15 @@ const CONTRACT_RULES = [
   "AI emits flags only — never x/y/width/fill/stroke/animation",
   "layoutMode trunk: BoxCreation + TextCreation + connections in teaching order",
   "layoutMode code-map: one CodeDisplay (text + portions) + linkedPortion BoxCreation per portion; connections []",
-  "When user pastes code: CodeDisplay.text must be their snippet verbatim (pasted_code.py enforces)",
+  "When user pastes code: max 80 lines; otherwise API returns a validation message",
+  "For valid pasted code: CodeDisplay.text must match the snippet verbatim (pasted_code.py enforces)",
   "Frontend owns all spatial decisions: BOX_LAYOUT, codeMapLayout, themes, GSAP timing",
   "Three layers enforce contract: Pydantic schema → backend sanitizer → frontend role guards",
 ];
 
 const PLANNED = [
-  { area: "Code-map Phase 3", status: "Planned", note: "Click-to-expand branches on explanation boxes" },
-  { area: "Code-map Phase 4", status: "Planned", note: "Level-2 fan layout for nested detail" },
+  { area: "Code-map Phase 3", status: "Shipped", note: "Click-to-expand branches on explanation boxes" },
+  { area: "Code-map Phase 4", status: "In progress", note: "Level-2 fan layout with anti-overlap spacing for detail branches" },
   { area: "Stickers", status: "In progress", note: "Custom SVG themes (anime, comic) replacing BoxSticker components" },
   { area: "History UI", status: "Not started", note: "answers table exists but no list/replay UI in frontend yet" },
 ];
@@ -505,6 +509,17 @@ function VisualEngineMap() {
     >
       <Stack gap={12}>
         <Text weight="medium">visualEngine/ component tree</Text>
+        <Callout tone="info">
+          <Stack gap={4}>
+            <Text weight="medium">Where code-map explanations are rendered</Text>
+            <Text tone="tertiary">
+              <Text weight="medium">objectConditions/codeMapExplanation.tsx</Text> draws the
+              first-level explanation boxes and handles click-to-expand second branches.
+              The CHECK branch can auto-generate iteration-by-iteration detail from a
+              parsed <Text weight="medium">for (...)</Text> header.
+            </Text>
+          </Stack>
+        </Callout>
         <Grid columns={4} gap={8}>
           {boxes.map((b) => (
             <div
@@ -641,8 +656,8 @@ export default function ProjectVLMap() {
             <Stack gap={6}>
               <Text weight="medium">Client-side only</Text>
               <Text tone="tertiary">Learning preferences — localStorage</Text>
-              <Text tone="tertiary">Theme selection — React state in TestPage (session)</Text>
-              <Text tone="tertiary">Zoom level — React state in TestPage (session)</Text>
+              <Text tone="tertiary">Theme selection — React state in VisualPage (session)</Text>
+              <Text tone="tertiary">Zoom level — React state in VisualPage (session)</Text>
             </Stack>
           </Grid>
         </Stack>

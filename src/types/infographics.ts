@@ -140,7 +140,8 @@ export type DrawingStageObject =
   | DrawingStageCircleObject
   | DrawingStageLineObject;
 
-export type DrawingStageLayoutMode = "trunk" | "code-map";
+/** ``trunk`` is legacy; prefer ``math`` or ``science`` for non-code domains. */
+export type DrawingStageLayoutMode = "trunk" | "code-map" | "math" | "science";
 
 // =============================================================================
 // Connections + free-form polylines

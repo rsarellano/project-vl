@@ -17,7 +17,7 @@ import { createAnswer, fetchTwoSumSampleStage } from "@/lib/api";
 import type { UserLearningPreferences } from "@/lib/userPreferences";
 import type { DrawingStage } from "@/types/infographics";
 
-type TestPageProps = {
+type VisualPageProps = {
   preferences?: UserLearningPreferences | null;
   theme: ThemeName;
   onThemeChange: (theme: ThemeName) => void;
@@ -27,7 +27,11 @@ const DIAGRAM_ZOOM_MIN = 0.5;
 const DIAGRAM_ZOOM_MAX = 3;
 const DIAGRAM_ZOOM_STEP = 0.15;
 
-export default function TestPage({ preferences, theme, onThemeChange }: TestPageProps) {
+export default function VisualPage({
+  preferences,
+  theme,
+  onThemeChange,
+}: VisualPageProps) {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

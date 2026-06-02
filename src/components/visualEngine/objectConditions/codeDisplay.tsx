@@ -8,7 +8,7 @@ import {
   type ResolvedCodeMapLayout,
   type ResolvedPortionLayout,
 } from "@/components/visualEngine/layouts/codeMapLayout";
-import { tokenizeCodeLine } from "@/components/visualEngine/objectConditions/codeSyntaxHighlight";
+import { tokenizeCodeLine } from "@/components/visualEngine/objectConditions/codeConditions/codeSyntaxHighlight";
 import {
   getCodePanelTheme,
   type ThemeName,

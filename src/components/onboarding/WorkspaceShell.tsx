@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import TestPage from "@/components/testPage";
+import VisualPage from "@/components/VisualPage";
 import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { PreferencesSummary } from "@/components/onboarding/PreferencesSummary";
 import { useDiagramTheme } from "@/hooks/useDiagramTheme";
@@ -47,7 +47,7 @@ export function WorkspaceShell() {
         />
       ) : null}
       <div className="min-h-0 flex-1">
-        <TestPage preferences={prefs} theme={theme} onThemeChange={setTheme} />
+        <VisualPage preferences={prefs} theme={theme} onThemeChange={setTheme} />
       </div>
     </div>
   );

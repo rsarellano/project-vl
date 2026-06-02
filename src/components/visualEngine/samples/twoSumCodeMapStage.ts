@@ -2,7 +2,7 @@ import type { DrawingStage } from "@/types/infographics";
 
 /**
  * Static Two Sum code-map sample for Phase 1 prototyping.
- * No AI call — load directly in TestPage to validate code + highlights + explanations.
+ * No AI call — load directly in VisualPage to validate code + highlights + explanations.
  */
 export function getTwoSumCodeMapStage(): DrawingStage {
   const codeLines = [
