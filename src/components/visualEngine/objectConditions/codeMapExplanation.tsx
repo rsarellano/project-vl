@@ -168,12 +168,9 @@ function buildDetailLines(
   }
 
   const base = Array.isArray(explain.text) ? explain.text : explain.text ? [explain.text] : [];
-  const joined = base.join(" ").trim();
-  if (!joined) return ["Click another branch for more details."];
-  return [
-    `This branch means: ${joined}`,
-    "Focus on what changes before/after this section runs.",
-  ];
+  const lines = base.map((line) => String(line).trim()).filter(Boolean);
+  if (!lines.length) return ["No additional details."];
+  return lines;
 }
 
 export default function CodeMapExplanation({
