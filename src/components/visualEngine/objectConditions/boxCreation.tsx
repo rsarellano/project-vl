@@ -1,8 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import {
+  getMathBoxAnimation,
+  MATH_ANSWER_BOX_DEFAULTS,
+  MATH_BOX_DEFAULTS,
+  MATH_BOX_TEXT,
+  resolveMathBoxLayout,
+  resolveMathBoxSlot,
+} from "@/components/visualEngine/layouts/mathLayout";
 import { getTheme, type ThemeName } from "@/components/visualEngine/themes";
+import type { MathStepDerivation } from "@/lib/mathDerivation/types";
 import type { DrawingStageText } from "@/types/infographics";
+
+export type BoxLayoutOptions = {
+  mathMode?: boolean;
+  allBoxes?: ReadonlyArray<BoxCreationObject>;
+};
 
 /**
  * Flag-driven box renderer.
@@ -67,10 +81,20 @@ export const BOX_HOVER = {
   durationMs: 220,
 } as const;
 
+/** Seamless selected-state highlight — soft elevation, no hard border. */
+export const BOX_SELECTED = {
+  scale: 1.015,
+  shadow: "0 8px 20px rgba(15, 23, 42, 0.16)",
+} as const;
+
 export type BoxCreationObject = {
   id: string | number;
   BoxCreation?: boolean;
   text?: string | string[];
+  /** Optional expanded copy for the math-layout detail panel; falls back to ``text``. */
+  detail?: string | string[];
+  /** Layer 2: previous step → this step (beat script for detail panel). */
+  derivation?: MathStepDerivation;
   linkedPortion?: string;
   fontWeight?: number;
   textAnchor?: DrawingStageText["textAnchor"];
@@ -131,7 +155,13 @@ export function getBoxIndexById(
   return map;
 }
 
-export function resolveBoxSlot(boxIndex: number): { x: number; y: number } {
+export function resolveBoxSlot(
+  boxIndex: number,
+  options?: BoxLayoutOptions,
+): { x: number; y: number } {
+  if (options?.mathMode && options.allBoxes) {
+    return resolveMathBoxSlot(boxIndex, options.allBoxes);
+  }
   return {
     x: BOX_LAYOUT.startX + boxIndex * (BOX_LAYOUT.boxWidth + BOX_LAYOUT.horizontalGap),
     y: BOX_LAYOUT.y,
@@ -156,10 +186,13 @@ export function resolveBoxDimensions(
 export function resolveBoxLayout(
   text: string | string[] | undefined,
   boxIndex: number,
+  options?: BoxLayoutOptions,
 ): ResolvedBoxLayout {
-  const slot = resolveBoxSlot(boxIndex);
+  if (options?.mathMode && options.allBoxes) {
+    return resolveMathBoxLayout(text, boxIndex, options.allBoxes);
+  }
+  const slot = resolveBoxSlot(boxIndex, options);
   const dimensions = resolveBoxDimensions(text, boxIndex);
-
   return {
     x: slot.x,
     y: slot.y,
@@ -192,24 +225,36 @@ export function resolveBoxSpec(
   object: BoxCreationObject,
   boxIndex: number,
   totalBoxCount?: number,
+  options?: BoxLayoutOptions,
 ): ResolvedBoxSpec {
-  const layout = resolveBoxLayout(object.text, boxIndex);
+  const layout = resolveBoxLayout(object.text, boxIndex, options);
   const answer = isAnswerBox(boxIndex, totalBoxCount);
+  const animation = options?.mathMode
+    ? getMathBoxAnimation(boxIndex)
+    : resolveBoxAnimation(boxIndex);
+
+  const mathChrome = options?.mathMode
+    ? answer
+      ? MATH_ANSWER_BOX_DEFAULTS
+      : MATH_BOX_DEFAULTS
+    : null;
 
   return {
     id: String(object.id),
     text: object.text,
     ...layout,
-    animation: resolveBoxAnimation(boxIndex),
-    radius: BOX_DEFAULTS.radius,
-    fill: answer ? ANSWER_BOX_DEFAULTS.fill : BOX_DEFAULTS.fill,
-    stroke: answer ? ANSWER_BOX_DEFAULTS.stroke : BOX_DEFAULTS.stroke,
-    strokeWidth: answer
-      ? ANSWER_BOX_DEFAULTS.strokeWidth
-      : BOX_DEFAULTS.strokeWidth,
-    fontSize: BOX_DEFAULTS.fontSize,
-    lineHeight: BOX_DEFAULTS.lineHeight,
-    textColor: answer ? ANSWER_BOX_DEFAULTS.textColor : BOX_DEFAULTS.textColor,
+    animation,
+    radius: mathChrome?.radius ?? BOX_DEFAULTS.radius,
+    fill: mathChrome?.fill ?? (answer ? ANSWER_BOX_DEFAULTS.fill : BOX_DEFAULTS.fill),
+    stroke: mathChrome?.stroke ?? (answer ? ANSWER_BOX_DEFAULTS.stroke : BOX_DEFAULTS.stroke),
+    strokeWidth:
+      mathChrome?.strokeWidth ??
+      (answer ? ANSWER_BOX_DEFAULTS.strokeWidth : BOX_DEFAULTS.strokeWidth),
+    fontSize: options?.mathMode ? MATH_BOX_TEXT.fontSize : BOX_DEFAULTS.fontSize,
+    lineHeight: options?.mathMode ? MATH_BOX_TEXT.lineHeight : BOX_DEFAULTS.lineHeight,
+    textColor:
+      mathChrome?.textColor ??
+      (answer ? ANSWER_BOX_DEFAULTS.textColor : BOX_DEFAULTS.textColor),
     fontWeight: object.fontWeight,
     textAnchor: object.textAnchor,
   };
@@ -241,34 +286,56 @@ export default function BoxCreation({
   boxIndex = 0,
   totalBoxCount,
   theme,
+  mathMode = false,
+  allBoxes = [],
+  isSelected = false,
+  onSelect,
 }: {
   object: BoxCreationObject;
   boxIndex?: number;
   totalBoxCount?: number;
   theme?: ThemeName;
+  mathMode?: boolean;
+  allBoxes?: ReadonlyArray<BoxCreationObject>;
+  isSelected?: boolean;
+  onSelect?: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
   if (!isBoxCreationApproved(object)) return null;
 
-  const box = resolveBoxSpec(object, boxIndex, totalBoxCount);
+  const layoutOptions = mathMode ? { mathMode: true, allBoxes } : undefined;
+  const box = resolveBoxSpec(object, boxIndex, totalBoxCount, layoutOptions);
   const isAnswer = isAnswerBox(boxIndex, totalBoxCount);
   const centerX = box.x + box.width / 2;
   const centerY = box.y + box.height / 2;
+  const interactive = mathMode && Boolean(onSelect);
 
   const { BoxSticker } = getTheme(theme);
+
+  const activeScale = hovered
+    ? BOX_HOVER.scale
+    : isSelected
+      ? BOX_SELECTED.scale
+      : 1;
+  const activeShadow = hovered
+    ? BOX_HOVER.shadow
+    : isSelected
+      ? BOX_SELECTED.shadow
+      : null;
 
   return (
     <g data-stage-id={box.id}>
       <g
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        onClick={interactive ? onSelect : undefined}
         style={{
-          cursor: "pointer",
+          cursor: interactive ? "pointer" : undefined,
           transformOrigin: `${centerX}px ${centerY}px`,
-          transform: hovered ? `scale(${BOX_HOVER.scale})` : "scale(1)",
+          transform: `scale(${activeScale})`,
           transition: `transform ${BOX_HOVER.durationMs}ms ease-out, filter ${BOX_HOVER.durationMs}ms ease-out`,
-          filter: hovered ? `drop-shadow(${BOX_HOVER.shadow})` : "none",
+          filter: activeShadow ? `drop-shadow(${activeShadow})` : "none",
         }}
       >
         <BoxSticker
@@ -276,6 +343,8 @@ export default function BoxCreation({
           boxIndex={boxIndex}
           totalBoxCount={totalBoxCount}
           isAnswer={isAnswer}
+          mathMode={mathMode}
+          mathSkin={mathMode ? getTheme(theme).mathSkin : undefined}
         />
       </g>
     </g>

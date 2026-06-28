@@ -5,14 +5,17 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ClipboardEvent,
   type FormEvent,
 } from "react";
 import { setDrawingStageEndState } from "@/components/visualEngine/drawingStageTimeline";
 import { Stage, type StageHandle } from "@/components/visualEngine/Stage";
 import { ThemeSelect } from "@/components/visualEngine/ThemeSelect";
-import type { ThemeName } from "@/components/visualEngine/themes";
+import { getTheme, type ThemeName } from "@/components/visualEngine/themes";
 import { Timeline } from "@/components/visualEngine/Timeline";
 import { getTwoSumCodeMapStage } from "@/components/visualEngine/samples/twoSumCodeMapStage";
+import MathAskInput from "@/components/MathAskInput";
+import MathPreview from "@/components/MathPreview";
 import { createAnswer, fetchTwoSumSampleStage } from "@/lib/api";
 import type { UserLearningPreferences } from "@/lib/userPreferences";
 import type { DrawingStage } from "@/types/infographics";
@@ -26,6 +29,36 @@ type VisualPageProps = {
 const DIAGRAM_ZOOM_MIN = 0.5;
 const DIAGRAM_ZOOM_MAX = 3;
 const DIAGRAM_ZOOM_STEP = 0.15;
+const WORKSPACE_PANEL_WIDTH_PX = 420;
+const WORKSPACE_PANEL_COLLAPSED_KEY = "vl-workspace-panel-collapsed";
+
+function PanelToggleIcon({ collapsed }: { collapsed: boolean }) {
+  if (collapsed) {
+    return (
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden className="h-4 w-4">
+        <path
+          d="M6 3.5 10.5 8 6 12.5"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden className="h-4 w-4">
+      <path
+        d="M10 3.5 5.5 8 10 12.5"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export default function VisualPage({
   preferences,
@@ -33,6 +66,8 @@ export default function VisualPage({
   onThemeChange,
 }: VisualPageProps) {
   const [question, setQuestion] = useState("");
+  const [equationImage, setEquationImage] = useState<string | null>(null);
+  const [extractedEquation, setExtractedEquation] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drawingStage, setDrawingStage] = useState<DrawingStage | null>(null);
@@ -40,10 +75,30 @@ export default function VisualPage({
   const [diagramZoom, setDiagramZoom] = useState(1);
   const [playKey, setPlayKey] = useState(0);
   const [narrationMs, setNarrationMs] = useState(0);
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
 
   const stageRef = useRef<StageHandle>(null);
   const diagramScrollRef = useRef<HTMLDivElement>(null);
+  const themeConfig = getTheme(theme);
+  const mathSkin = themeConfig.mathSkin;
+  const mathChalk = themeConfig.mathChalk;
   const pendingScrollRef = useRef<{ left: number; top: number } | null>(null);
+
+  useEffect(() => {
+    try {
+      setPanelCollapsed(localStorage.getItem(WORKSPACE_PANEL_COLLAPSED_KEY) === "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(WORKSPACE_PANEL_COLLAPSED_KEY, panelCollapsed ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [panelCollapsed]);
 
   useEffect(() => {
     const el = diagramScrollRef.current;
@@ -89,25 +144,63 @@ export default function VisualPage({
     }
   }, [diagramZoom]);
 
+  function handleEquationPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (!item.type.startsWith("image/")) continue;
+      const file = item.getAsFile();
+      if (!file) continue;
+
+      e.preventDefault();
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          setEquationImage(reader.result);
+          setExtractedEquation(null);
+          setError(null);
+        }
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+  }
+
+  function clearEquationImage() {
+    setEquationImage(null);
+    setExtractedEquation(null);
+  }
+
+  const canSubmit = Boolean(question.trim() || equationImage) && !loading;
+
   async function handleAsk(e?: FormEvent) {
     e?.preventDefault();
-    const q = question.trim();
-    if (!q || loading) return;
+    if (!canSubmit) return;
 
     setLoading(true);
     setError(null);
     try {
-      const data = await createAnswer(q, preferences);
+      const data = await createAnswer(question.trim(), {
+        preferences,
+        equationImage,
+      });
       if (!data.stage) {
         throw new Error("Server returned no drawing stage.");
       }
       setDrawingStage(data.stage ?? null);
       setQuestionType(data.question_type ?? null);
+      setExtractedEquation(data.extracted_equation ?? null);
+      if (data.extracted_equation && !question.trim()) {
+        setQuestion(data.extracted_equation);
+      }
+      setEquationImage(null);
       setDiagramZoom(1);
       setPlayKey((k) => k + 1);
       setNarrationMs(0);
     } catch (err) {
       setQuestionType(null);
+      setExtractedEquation(null);
       setError(err instanceof Error ? err.message : "Request failed.");
     } finally {
       setLoading(false);
@@ -158,10 +251,20 @@ export default function VisualPage({
     URL.revokeObjectURL(url);
   };
 
+  const togglePanel = () => setPanelCollapsed((collapsed) => !collapsed);
+
   return (
-    <div className="flex h-full min-h-0 flex-col bg-slate-100 lg:flex-row">
+    <div className="relative flex h-full min-h-0 flex-col bg-slate-100 lg:flex-row">
       {/* Left: ask form + playback controls */}
-      <aside className="flex w-full shrink-0 flex-col border-b border-slate-200 bg-white lg:w-[min(100%,420px)] lg:border-b-0 lg:border-r">
+      <aside
+        className={`flex shrink-0 flex-col overflow-hidden border-b border-slate-200 bg-white transition-[width,max-height,opacity] duration-300 ease-in-out lg:border-b-0 lg:border-r ${
+          panelCollapsed
+            ? "max-h-0 border-b-0 opacity-0 lg:max-h-none lg:w-0 lg:border-r-0 lg:opacity-100"
+            : "w-full max-h-[2400px] opacity-100 lg:w-[420px]"
+        }`}
+        aria-hidden={panelCollapsed}
+      >
+        <div className="flex w-full min-w-[min(100%,420px)] flex-col lg:w-[420px]">
         <form
           onSubmit={handleAsk}
           className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4"
@@ -169,18 +272,45 @@ export default function VisualPage({
           <label className="text-sm font-medium text-slate-700" htmlFor="question">
             Ask a question
           </label>
-          <textarea
+          <MathAskInput
             id="question"
             value={question}
-            onChange={(e) => setQuestion(e.target.value)}
+            onChange={setQuestion}
+            onPaste={handleEquationPaste}
             rows={6}
-            placeholder="Trace this while loop… or paste code to explain…"
-            className="w-full resize-y rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            mathSkin={mathSkin}
+            chalk={mathChalk}
+            placeholder="Type a question, paste code, or paste an equation image (Ctrl+V)…"
           />
+          {equationImage ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-slate-600">
+                  Pasted equation image
+                </p>
+                <button
+                  type="button"
+                  onClick={clearEquationImage}
+                  className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+                >
+                  Remove
+                </button>
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={equationImage}
+                alt="Pasted equation"
+                className="max-h-36 w-full rounded-lg border border-slate-200 bg-white object-contain"
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                The AI will read this equation when you generate the diagram.
+              </p>
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="submit"
-              disabled={loading || !question.trim()}
+              disabled={!canSubmit}
               className="rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-40"
             >
               {loading ? "Generating…" : "Generate diagram"}
@@ -195,6 +325,14 @@ export default function VisualPage({
             </button>
           </div>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {extractedEquation ? (
+            <MathPreview
+              text={extractedEquation}
+              label="Read from image"
+              mathSkin={mathSkin}
+              chalk={mathChalk}
+            />
+          ) : null}
           {questionType ? (
             <p className="text-xs text-slate-500">Classifier: {questionType}</p>
           ) : null}
@@ -219,13 +357,38 @@ export default function VisualPage({
             </p>
           )}
         </div>
+        </div>
       </aside>
+
+      <button
+        type="button"
+        onClick={togglePanel}
+        className={`absolute top-1/2 z-30 hidden -translate-y-1/2 items-center justify-center rounded-r-lg border border-l-0 border-slate-200 bg-white text-slate-600 shadow-md transition-[left,background-color,color,box-shadow] duration-300 ease-in-out hover:bg-blue-50 hover:text-blue-700 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 lg:flex ${
+          panelCollapsed ? "left-0 h-14 w-8" : "h-12 w-7"
+        }`}
+        style={panelCollapsed ? undefined : { left: WORKSPACE_PANEL_WIDTH_PX }}
+        aria-label={panelCollapsed ? "Show workspace panel" : "Hide workspace panel"}
+        aria-expanded={!panelCollapsed}
+        title={panelCollapsed ? "Show panel" : "Hide panel"}
+      >
+        <PanelToggleIcon collapsed={panelCollapsed} />
+      </button>
 
       {/* Right: drawing stage */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
-        {drawingStage ? (
-          <>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={togglePanel}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 lg:hidden"
+            aria-expanded={!panelCollapsed}
+          >
+            <PanelToggleIcon collapsed={panelCollapsed} />
+            {panelCollapsed ? "Show panel" : "Hide panel"}
+          </button>
+
+          {drawingStage ? (
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
               <ThemeSelect
                 id="diagram-toolbar-theme"
                 value={theme}
@@ -266,7 +429,11 @@ export default function VisualPage({
                 +
               </button>
             </div>
+          ) : null}
+        </div>
 
+        {drawingStage ? (
+          <>
             <div
               ref={diagramScrollRef}
               className="min-h-0 flex-1 overflow-auto rounded-xl border border-slate-200 bg-slate-50/80 shadow-inner"

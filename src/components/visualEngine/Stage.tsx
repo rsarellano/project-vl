@@ -1,8 +1,12 @@
 "use client";
 
 import { forwardRef, useImperativeHandle, useRef } from "react";
-import { DrawingStageSvgContent } from "@/components/visualEngine/DrawingStage";
+import {
+  DrawingStageSvgContent,
+  type MathStepFollowUpHandler,
+} from "@/components/visualEngine/DrawingStage";
 import { computeCodeMapViewBox } from "@/components/visualEngine/layouts/codeMapLayout";
+import { computeMathViewBox } from "@/components/visualEngine/layouts/mathLayout";
 import {
   BOX_LAYOUT,
   resolveBoxDimensions,
@@ -36,6 +40,8 @@ interface StageProps {
    * scroll container handles panning.
    */
   zoom?: number;
+  onStepFollowUp?: MathStepFollowUpHandler;
+  originalPrompt?: string | null;
 }
 
 /** Base diagram height at zoom=1, before the zoom multiplier. */
@@ -51,6 +57,10 @@ const BASE_DIAGRAM_HEIGHT = "min(72vh, 780px)";
 function computeViewBox(stage: DrawingStageModel): { width: number; height: number } {
   if (isCodeMapStage(stage)) {
     return computeCodeMapViewBox(stage);
+  }
+
+  if (stage.layoutMode === "math") {
+    return computeMathViewBox(stage);
   }
 
   const boxObjects = stage.objects.filter(isTrunkBoxItem) as unknown as BoxCreationObject[];
@@ -79,7 +89,15 @@ function computeViewBox(stage: DrawingStageModel): { width: number; height: numb
 
 /** SVG canvas for a `DrawingStage` payload; animations run via GSAP timeline. */
 export const Stage = forwardRef<StageHandle, StageProps>(function Stage(
-  { drawingStage, playKey = 0, onTimeUpdate, theme, zoom = 1 },
+  {
+    drawingStage,
+    playKey = 0,
+    onTimeUpdate,
+    theme,
+    zoom = 1,
+    onStepFollowUp,
+    originalPrompt,
+  },
   ref,
 ) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -95,13 +113,10 @@ export const Stage = forwardRef<StageHandle, StageProps>(function Stage(
   const { width, height } = computeViewBox(drawingStage);
   const viewBox = `0 0 ${width} ${height}`;
   const themeObj = getTheme(theme);
+  const isMathLayout = drawingStage.layoutMode === "math";
 
-  // Width is derived from the viewBox aspect ratio (`width: auto` on an SVG
-  // with a viewBox). The wrapper uses `w-max` so it grows to the rendered
-  // SVG width, letting the parent scroll container pan horizontally. The
-  // theme canvas color lives on the wrapper (which fills the viewport area
-  // via `min-h-full`/`min-w-full`) so any space the SVG doesn't cover —
-  // below or beside it — still reads as the active theme.
+  // Math diagrams are tall: scale viewBox pixels uniformly so zoom % matches
+  // rendered size (width: 100% + meet was capping scale and breaking zoom).
   return (
     <div
       className="flex min-h-full w-max min-w-full items-start justify-start p-4"
@@ -111,17 +126,23 @@ export const Stage = forwardRef<StageHandle, StageProps>(function Stage(
         ref={svgRef}
         id="drawing-stage-svg"
         viewBox={viewBox}
-        preserveAspectRatio="xMidYMid meet"
-        style={{
-          height: `calc(${BASE_DIAGRAM_HEIGHT} * ${zoom})`,
-          width: "auto",
-        }}
+        preserveAspectRatio={isMathLayout ? "xMinYMin meet" : "xMidYMid meet"}
+        {...(isMathLayout
+          ? { width: width * zoom, height: height * zoom }
+          : {
+              style: {
+                height: `calc(${BASE_DIAGRAM_HEIGHT} * ${zoom})`,
+                width: "auto",
+              },
+            })}
       >
         <DrawingStageSvgContent
           stage={drawingStage}
           theme={theme}
           canvasWidth={width}
           canvasHeight={height}
+          onStepFollowUp={onStepFollowUp}
+          originalPrompt={originalPrompt}
         />
       </svg>
     </div>

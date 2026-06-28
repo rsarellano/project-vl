@@ -9,6 +9,7 @@ export const defaultTheme: Theme = {
   label: "Default (clean)",
   canvasColor: "#ffffff",
   codePanel: defaultCodePanelTheme,
+  mathSkin: "default",
   Defs: DefaultDefs,
   BackgroundDecor: DefaultBackgroundDecor,
   BoxSticker: DefaultBoxSticker,

@@ -1,5 +1,6 @@
 export const USAGE_CONTEXTS = [
-  { id: "personal", label: "Personal", description: "Learning for yourself or hobbies" },
+  { id: "personal", label: "Personal", description: "Learning for yourself and everyday curiosity" },
+  { id: "hobby", label: "Hobby", description: "Side projects, creative interests, and fun deep dives" },
   { id: "professional", label: "Professional", description: "Work skills, interviews, on-the-job learning" },
   { id: "business", label: "Business", description: "Teams, operations, and decision-making" },
   { id: "education", label: "Education", description: "School, courses, or teaching others" },
@@ -22,6 +23,7 @@ export type UserLearningPreferences = {
   usageContext: UsageContextId;
   subjectDomain: SubjectDomainId;
 };
+
 
 const STORAGE_KEY = "project-vl-learning-preferences";
 

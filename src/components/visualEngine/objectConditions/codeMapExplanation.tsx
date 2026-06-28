@@ -234,8 +234,7 @@ export default function CodeMapExplanation({
             y={textY}
             fill={box.textColor}
             fontSize={box.fontSize}
-            fontWeight={box.fontWeight}
-            textAnchor={box.textAnchor ?? "start"}
+            textAnchor="start"
           >
             {displayLines.map((line, index) => {
               const isLabelLine = hasLabel && index === 0;
@@ -246,7 +245,7 @@ export default function CodeMapExplanation({
                   dy={index === 0 ? 0 : box.lineHeight}
                   fill={isLabelLine ? EXPLAIN_LABEL.color : box.textColor}
                   fontSize={isLabelLine ? EXPLAIN_LABEL.fontSize : box.fontSize}
-                  fontWeight={isLabelLine ? EXPLAIN_LABEL.fontWeight : box.fontWeight}
+                  fontWeight={isLabelLine ? EXPLAIN_LABEL.fontWeight : undefined}
                   fontFamily={isLabelLine ? EXPLAIN_LABEL.monoFont : undefined}
                   letterSpacing={isLabelLine ? "0.06em" : undefined}
                 >
@@ -299,7 +298,6 @@ export default function CodeMapExplanation({
             y={detailTextY}
             fill={box.textColor}
             fontSize={box.fontSize}
-            fontWeight={box.fontWeight}
             textAnchor="start"
           >
             {[DETAIL_BOX.title, "", ...detailLines].map((line, index) => (
@@ -309,7 +307,7 @@ export default function CodeMapExplanation({
                 dy={index === 0 ? 0 : DETAIL_BOX.lineHeight}
                 fill={index === 0 ? EXPLAIN_LABEL.color : box.textColor}
                 fontSize={index === 0 ? EXPLAIN_LABEL.fontSize : box.fontSize}
-                fontWeight={index === 0 ? EXPLAIN_LABEL.fontWeight : box.fontWeight}
+                fontWeight={index === 0 ? EXPLAIN_LABEL.fontWeight : undefined}
                 fontFamily={index === 0 ? EXPLAIN_LABEL.monoFont : undefined}
                 letterSpacing={index === 0 ? "0.06em" : undefined}
               >

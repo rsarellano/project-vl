@@ -1,3 +1,4 @@
+import MathTextLines from "@/components/visualEngine/MathTextLines";
 import type { BoxStickerProps } from "../types";
 import { CYBERPUNK_TOKENS as T } from "./tokens";
 
@@ -46,7 +47,12 @@ function buildClippedPanelPath(
   ].join(" ");
 }
 
-export function CyberpunkBoxSticker({ box, boxIndex, isAnswer }: BoxStickerProps) {
+export function CyberpunkBoxSticker({
+  box,
+  boxIndex,
+  isAnswer,
+  mathMode,
+}: BoxStickerProps) {
   const cut = T.cornerCut;
   const path = buildClippedPanelPath(box.x, box.y, box.width, box.height, cut);
 
@@ -130,23 +136,17 @@ export function CyberpunkBoxSticker({ box, boxIndex, isAnswer }: BoxStickerProps
       />
 
       {lines.length ? (
-        <text
+        <MathTextLines
+          lines={lines}
           x={bodyX}
           y={bodyStartY}
-          fill={bodyColor}
+          lineHeight={box.lineHeight}
           fontSize={box.fontSize}
+          textColor={bodyColor}
           fontFamily={T.monoFont}
-        >
-          {lines.map((line, idx) => (
-            <tspan
-              key={`${box.id}-line-${idx}`}
-              x={bodyX}
-              dy={idx === 0 ? 0 : box.lineHeight}
-            >
-              {line}
-            </tspan>
-          ))}
-        </text>
+          mathMode={mathMode}
+          maxWidth={box.width - box.padding * 2}
+        />
       ) : null}
 
       <circle

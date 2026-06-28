@@ -13,12 +13,14 @@
 import type { Theme, ThemeName } from "./types";
 import { defaultTheme } from "./default";
 import { cyberpunkTheme } from "./cyberpunk";
+import { chalkboardTheme } from "./chalkboard";
 
 export type { Theme, ThemeName, BoxStickerProps } from "./types";
 
 export const THEMES: Record<ThemeName, Theme> = {
   default: defaultTheme,
   cyberpunk: cyberpunkTheme,
+  chalkboard: chalkboardTheme,
 };
 
 /** Drop-in options array for `<select>` pickers. */
@@ -35,4 +37,8 @@ export function getTheme(name: ThemeName | undefined): Theme {
 
 export function getCodePanelTheme(name: ThemeName | undefined) {
   return getTheme(name).codePanel;
+}
+
+export function getThemeMathSkin(name: ThemeName | undefined) {
+  return getTheme(name).mathSkin;
 }

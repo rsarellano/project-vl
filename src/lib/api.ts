@@ -13,6 +13,7 @@ export type AnswerResponse = {
   id: string;
   prompt: string;
   answer: string;
+  extracted_equation?: string | null;
   question_type?: string | null;
   blueprint?: unknown;
   stage?: DrawingStage | null;
@@ -36,19 +37,33 @@ export async function parseFastAPIError(res: Response): Promise<string> {
   }
 }
 
+export type CreateAnswerOptions = {
+  preferences?: UserLearningPreferences | null;
+  equationImage?: string | null;
+};
+
 /** POST `/api/answers/` — generate a flag-driven DrawingStage from a prompt. */
 export async function createAnswer(
   prompt: string,
-  preferences?: UserLearningPreferences | null,
+  options?: CreateAnswerOptions | UserLearningPreferences | null,
 ): Promise<AnswerResponse> {
   const base = getApiBaseUrl();
+  const resolved =
+    options && "usageContext" in options
+      ? { preferences: options, equationImage: null as string | null }
+      : {
+          preferences: options?.preferences ?? null,
+          equationImage: options?.equationImage ?? null,
+        };
+
   const res = await fetch(`${base}/api/answers/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       prompt,
-      usage_context: preferences?.usageContext ?? null,
-      subject_domain: preferences?.subjectDomain ?? null,
+      usage_context: resolved.preferences?.usageContext ?? null,
+      subject_domain: resolved.preferences?.subjectDomain ?? null,
+      equation_image: resolved.equationImage,
     }),
   });
 
@@ -67,6 +82,25 @@ export async function fetchWhileLoopSampleStage(): Promise<DrawingStage> {
     throw new Error(await parseFastAPIError(res));
   }
   return res.json() as Promise<DrawingStage>;
+}
+
+/** Context for a follow-up question about one math-layout step (API TBD). */
+export type MathStepFollowUpRequest = {
+  question: string;
+  stepId: string;
+  stepIndex: number;
+  stage: DrawingStage;
+  originalPrompt?: string | null;
+};
+
+/**
+ * POST follow-up for a math step — wire when backend endpoint exists.
+ * Until then, callers should omit `onStepFollowUp` and the panel shows a disabled hint.
+ */
+export async function askMathStepFollowUp(
+  _payload: MathStepFollowUpRequest,
+): Promise<string> {
+  throw new Error("Step follow-up API is not connected yet.");
 }
 
 /** GET `/api/answers/samples/two-sum` — static code-map DrawingStage sample. */

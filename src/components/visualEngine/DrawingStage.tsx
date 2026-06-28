@@ -1,10 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { CodeMapSvgContent } from "@/components/visualEngine/CodeMapStage";
 import BoxCreation, {
   getBoxIndexById,
+  resolveBoxLayout,
   type BoxCreationObject,
 } from "@/components/visualEngine/objectConditions/boxCreation";
+import type { MathDetailChatMessage } from "@/components/visualEngine/objectConditions/MathDetailPanelContent";
+import MathDetailPanel from "@/components/visualEngine/objectConditions/mathDetailPanel";
+import { extractProblemEquation } from "@/lib/mathDerivation/resolveDerivation";
+import type { MathStepFollowUpRequest } from "@/lib/api";
+import {
+  resolveMathBoxDimensions,
+  resolveMathBoxSlot,
+  resolveMathDetailReserveHeight,
+} from "@/components/visualEngine/layouts/mathLayout";
 import LineCreation from "@/components/visualEngine/objectConditions/lineCreation";
 import TextCreation, {
   type TextCreationObject,
@@ -28,11 +39,18 @@ import {
   type DrawingStageTextObject,
 } from "@/types/infographics";
 
+export type MathStepFollowUpHandler = (
+  payload: MathStepFollowUpRequest,
+) => Promise<string>;
+
 interface DrawingStageProps {
   stage: DrawingStage;
   theme?: ThemeName;
   canvasWidth?: number;
   canvasHeight?: number;
+  /** When set, enables the step detail chat and routes questions through this handler. */
+  onStepFollowUp?: MathStepFollowUpHandler;
+  originalPrompt?: string | null;
 }
 
 function getTextLines(text: string | string[] | undefined): string[] {
@@ -163,21 +181,38 @@ function StageObject({
   boxIndex,
   totalBoxCount,
   allObjects,
+  trunkBoxes,
   theme,
+  mathMode,
+  selectedBoxId,
+  onSelectBox,
 }: {
   object: DrawingStageObject;
   boxIndex: number | undefined;
   totalBoxCount: number;
   allObjects: ReadonlyArray<DrawingStageObject>;
+  trunkBoxes: ReadonlyArray<BoxCreationObject>;
   theme?: ThemeName;
+  mathMode: boolean;
+  selectedBoxId: string | null;
+  onSelectBox: (boxId: string) => void;
 }) {
   if (isBoxCreationItem(object)) {
+    const boxId = String(object.id);
     return (
       <BoxCreation
         object={object as unknown as BoxCreationObject}
         boxIndex={boxIndex ?? 0}
         totalBoxCount={totalBoxCount}
         theme={theme}
+        mathMode={mathMode}
+        allBoxes={trunkBoxes}
+        isSelected={mathMode && selectedBoxId === boxId}
+        onSelect={
+          mathMode
+            ? () => onSelectBox(boxId)
+            : undefined
+        }
       />
     );
   }
@@ -189,6 +224,8 @@ function StageObject({
         answers={
           allObjects.filter(isTextCreationItem) as unknown as TextCreationObject[]
         }
+        mathMode={mathMode}
+        theme={theme}
       />
     );
   }
@@ -218,6 +255,8 @@ export function DrawingStageSvgContent({
   theme,
   canvasWidth,
   canvasHeight,
+  onStepFollowUp,
+  originalPrompt,
 }: DrawingStageProps) {
   if (isCodeMapStage(stage)) {
     return (
@@ -230,14 +269,85 @@ export function DrawingStageSvgContent({
     );
   }
 
+  const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
+  const [chatByBoxId, setChatByBoxId] = useState<
+    Record<string, MathDetailChatMessage[]>
+  >({});
+
   const objects = stage.objects;
+  const mathMode = stage.layoutMode === "math";
   const trunkBoxes = objects.filter(isTrunkBoxItem) as unknown as BoxCreationObject[];
   const boxIndexById = getBoxIndexById(trunkBoxes);
   const connections = stage.connections ?? [];
+  const totalBoxCount = boxIndexById.size;
+  const problemEquation = mathMode ? extractProblemEquation(objects) : null;
 
   const themeObj = getTheme(theme);
   const decorWidth = canvasWidth ?? stage.width;
   const decorHeight = canvasHeight ?? stage.height;
+
+  let stepsBottom = 0;
+  if (mathMode && trunkBoxes.length > 0) {
+    const lastIndex = trunkBoxes.length - 1;
+    const dims = resolveMathBoxDimensions(trunkBoxes[lastIndex]?.text);
+    stepsBottom = resolveMathBoxSlot(lastIndex, trunkBoxes).y + dims.height;
+  }
+  const detailBounds = mathMode
+    ? resolveMathDetailReserveHeight(stepsBottom)
+    : null;
+
+  const selectedBox =
+    mathMode && selectedBoxId
+      ? trunkBoxes.find((box) => String(box.id) === selectedBoxId)
+      : undefined;
+  const selectedBoxIndex =
+    selectedBoxId !== null ? boxIndexById.get(selectedBoxId) : undefined;
+
+  const handleSelectBox = (boxId: string) => {
+    setSelectedBoxId((current) => (current === boxId ? null : boxId));
+  };
+
+  const handleStepAsk = async (question: string) => {
+    if (!onStepFollowUp || !selectedBoxId || selectedBoxIndex === undefined) {
+      return;
+    }
+
+    setChatByBoxId((current) => ({
+      ...current,
+      [selectedBoxId]: [
+        ...(current[selectedBoxId] ?? []),
+        { role: "user", text: question },
+      ],
+    }));
+
+    try {
+      const answer = await onStepFollowUp({
+        question,
+        stepId: selectedBoxId,
+        stepIndex: selectedBoxIndex,
+        stage,
+        originalPrompt,
+      });
+
+      setChatByBoxId((current) => ({
+        ...current,
+        [selectedBoxId]: [
+          ...(current[selectedBoxId] ?? []),
+          { role: "assistant", text: answer },
+        ],
+      }));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not get an answer.";
+      setChatByBoxId((current) => ({
+        ...current,
+        [selectedBoxId]: [
+          ...(current[selectedBoxId] ?? []),
+          { role: "assistant", text: message },
+        ],
+      }));
+    }
+  };
 
   return (
     <>
@@ -253,6 +363,7 @@ export function DrawingStageSvgContent({
           key={`conn-${connection.from}-${connection.to}-${index}`}
           connection={connection}
           objects={trunkBoxes}
+          mathMode={mathMode}
         />
       ))}
 
@@ -267,14 +378,44 @@ export function DrawingStageSvgContent({
             key={object.id}
             object={object}
             allObjects={objects}
+            trunkBoxes={trunkBoxes}
             boxIndex={
               isTrunkBoxItem(object) ? boxIndexById.get(String(object.id)) : undefined
             }
-            totalBoxCount={boxIndexById.size}
+            totalBoxCount={totalBoxCount}
             theme={theme}
+            mathMode={mathMode}
+            selectedBoxId={selectedBoxId}
+            onSelectBox={handleSelectBox}
           />
         );
       })}
+
+      {detailBounds &&
+      selectedBox &&
+      selectedBoxIndex !== undefined ? (
+        <MathDetailPanel
+          box={selectedBox}
+          previousBox={
+            selectedBoxIndex > 0 ? trunkBoxes[selectedBoxIndex - 1] : undefined
+          }
+          initialEquation={problemEquation}
+          boxLayout={resolveBoxLayout(
+            selectedBox.text,
+            selectedBoxIndex,
+            { mathMode: true, allBoxes: trunkBoxes },
+          )}
+          boxIndex={selectedBoxIndex}
+          totalBoxCount={totalBoxCount}
+          bounds={detailBounds}
+          theme={theme}
+          mathSkin={themeObj.mathSkin ?? "default"}
+          messages={
+            selectedBoxId ? (chatByBoxId[selectedBoxId] ?? []) : []
+          }
+          onAsk={onStepFollowUp ? handleStepAsk : undefined}
+        />
+      ) : null}
     </>
   );
 }

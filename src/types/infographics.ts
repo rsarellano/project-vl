@@ -22,9 +22,9 @@ export interface DrawingStageAnimation {
   delayMs?: number;
 }
 
-// =============================================================================
-// Flag-driven objects (frontend resolves layout)
-// =============================================================================
+import type { MathStepDerivation } from "@/lib/mathDerivation/types";
+
+export type { MathStepDerivation, MathDerivationFrame, MathDerivationTransition, MathDerivationBeat, MathDerivationMotionKind, MathDerivationMotionStep } from "@/lib/mathDerivation/types";
 
 /**
  * Flag-driven box (no `type` field). Frontend resolves x/y/width/height + animation.
@@ -33,6 +33,10 @@ export interface DrawingStageAnimation {
 export interface DrawingStageBoxCreationObject extends DrawingStageBaseItem {
   BoxCreation: true;
   text?: string | string[];
+  /** Math layout: expanded copy for the right-column detail panel (falls back to ``text``). */
+  detail?: string | string[];
+  /** Math layout layer 2: beat script for how the previous step became this one. */
+  derivation?: MathStepDerivation;
   /** Code-map only: ties the box to a ``CodeDisplay.portions[]`` entry. */
   linkedPortion?: string;
   fontWeight?: number;

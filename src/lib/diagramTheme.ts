@@ -5,7 +5,7 @@ import {
 
 const STORAGE_KEY = "project-vl-diagram-theme";
 
-const VALID_THEMES = new Set<ThemeName>(["default", "cyberpunk"]);
+const VALID_THEMES = new Set<ThemeName>(["default", "cyberpunk", "chalkboard"]);
 
 export function getStoredDiagramTheme(): ThemeName {
   if (typeof window === "undefined") return DEFAULT_THEME;

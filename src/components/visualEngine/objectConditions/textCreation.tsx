@@ -1,12 +1,19 @@
 "use client";
 
+import MathTextLines from "@/components/visualEngine/MathTextLines";
+import { getTheme, type ThemeName } from "@/components/visualEngine/themes";
 import {
   BOX_ANIMATION,
   getBoxObjects,
   resolveBoxDimensions,
   resolveBoxSlot,
   type BoxCreationObject,
+  type BoxLayoutOptions,
 } from "@/components/visualEngine/objectConditions/boxCreation";
+import {
+  MATH_LAYOUT,
+  MATH_TEXT_PRESETS,
+} from "@/components/visualEngine/layouts/mathLayout";
 import type { DrawingStageText } from "@/types/infographics";
 
 /**
@@ -143,14 +150,19 @@ function resolveConsolePreset(
 export function resolveTextSpec(
   object: TextCreationObject,
   answers: ReadonlyArray<TextCreationObject> = [],
+  options?: BoxLayoutOptions,
 ): ResolvedTextSpec | null {
   if (!hasValidRole(object)) return null;
 
   const role = object.role;
+  const mathPreset =
+    options?.mathMode && role in MATH_TEXT_PRESETS
+      ? MATH_TEXT_PRESETS[role as keyof typeof MATH_TEXT_PRESETS]
+      : null;
   const preset: ResolvedTextPreset | null =
     role === "console"
       ? resolveConsolePreset(object, answers)
-      : (TEXT_PRESETS[role] ?? null);
+      : (mathPreset ?? TEXT_PRESETS[role] ?? null);
   if (!preset) return null;
 
   return {
@@ -183,36 +195,49 @@ export function getTextAnimationEntries(
 export default function TextCreation({
   object,
   answers = [],
+  mathMode = false,
+  theme,
 }: {
   object: TextCreationObject;
   answers?: ReadonlyArray<TextCreationObject>;
+  mathMode?: boolean;
+  theme?: ThemeName;
 }) {
   if (!isTextCreationApproved(object)) return null;
 
-  const spec = resolveTextSpec(object, answers);
+  const layoutOptions = mathMode ? { mathMode: true } : undefined;
+  const spec = resolveTextSpec(object, answers, layoutOptions);
   if (!spec) return null;
   const lines = getTextLines(spec.text);
+  const useMath =
+    mathMode && (object.role === "code-title" || object.role === "objective");
+  const maxWidth = mathMode ? MATH_LAYOUT.boxWidth + 40 : 900;
+  const themeObj = getTheme(theme);
+  const mathSkin = themeObj.mathSkin && useMath ? themeObj.mathSkin : undefined;
+  const mathChalk = Boolean(themeObj.mathChalk && useMath);
+  const titleColor =
+    themeObj.mathChalk && mathMode ? "#f2f2ea" : spec.textColor;
+  const titleFont = themeObj.mathChalk
+    ? 'var(--font-patrick-hand), "Patrick Hand", cursive'
+    : undefined;
 
   return (
     <g data-stage-id={spec.id}>
-      <text
+      <MathTextLines
+        lines={lines}
         x={spec.x}
         y={spec.y}
-        fill={spec.textColor}
+        lineHeight={spec.lineHeight}
         fontSize={spec.fontSize}
+        textColor={titleColor}
         fontWeight={spec.fontWeight}
+        fontFamily={titleFont}
         textAnchor={spec.textAnchor ?? "start"}
-      >
-        {lines.map((line, index) => (
-          <tspan
-            key={`${spec.id}-line-${index}`}
-            x={spec.x}
-            dy={index === 0 ? 0 : spec.lineHeight}
-          >
-            {line}
-          </tspan>
-        ))}
-      </text>
+        mathMode={useMath}
+        mathSkin={mathSkin}
+        mathChalk={mathChalk}
+        maxWidth={maxWidth}
+      />
     </g>
   );
 }

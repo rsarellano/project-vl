@@ -44,13 +44,19 @@ function collectAnimationEntries(stage: DrawingStage): {
   const objects = stage.objects;
   const flagBoxObjects = objects.filter(isTrunkBoxItem) as unknown as BoxCreationObject[];
   const textObjects = objects.filter(isTextCreationItem) as unknown as TextCreationObject[];
+  const mathMode = stage.layoutMode === "math";
+  const layoutOptions = mathMode ? { mathMode: true } : undefined;
 
   return {
     fades: [
       ...getBoxAnimationEntries(flagBoxObjects),
       ...getTextAnimationEntries(textObjects),
     ],
-    lines: getLineAnimationEntries(stage.connections ?? [], flagBoxObjects),
+    lines: getLineAnimationEntries(
+      stage.connections ?? [],
+      flagBoxObjects,
+      layoutOptions,
+    ),
   };
 }
 

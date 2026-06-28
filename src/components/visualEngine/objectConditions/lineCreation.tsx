@@ -7,7 +7,9 @@ import {
   getBoxObjects,
   resolveBoxSpec,
   type BoxCreationObject,
+  type BoxLayoutOptions,
 } from "@/components/visualEngine/objectConditions/boxCreation";
+import { resolveMathConnectorPoints } from "@/components/visualEngine/layouts/mathLayout";
 import type { DrawingStageConnection } from "@/types/infographics";
 
 export const LINE_DEFAULTS = {
@@ -20,17 +22,16 @@ export const LINE_ANIMATION = {
   delayAfterFromBoxMs: 400,
 } as const;
 
-/**
- * Horizontal layout: every connector sits on the same horizontal axis,
- * regardless of how tall each box rendered. We anchor Y to the layout's
- * standard box top + half the minimum box height so all connectors share a Y.
- */
 const CONNECTOR_Y = BOX_LAYOUT.y + BOX_DEFAULTS.minHeight / 2;
 
 export function resolveConnectorPoints(
   fromBox: { x: number; y: number; width: number; height: number },
   toBox: { x: number; y: number; width: number; height: number },
+  options?: BoxLayoutOptions,
 ): Array<{ x: number; y: number }> {
+  if (options?.mathMode) {
+    return resolveMathConnectorPoints(fromBox, toBox);
+  }
   const start = { x: fromBox.x + fromBox.width, y: CONNECTOR_Y };
   const end = { x: toBox.x, y: CONNECTOR_Y };
   return [start, end];
@@ -50,16 +51,20 @@ function connectionId(connection: DrawingStageConnection): string {
 function resolveLineSpec(
   connection: DrawingStageConnection,
   objects: ReadonlyArray<BoxCreationObject>,
+  options?: BoxLayoutOptions,
 ) {
   const boxes = getBoxObjects(objects).filter((b) => !b.linkedPortion);
+  const layoutOptions = options?.mathMode
+    ? { mathMode: true, allBoxes: boxes }
+    : undefined;
   const indexById = getBoxIndexById(boxes);
   const fromIndex = indexById.get(String(connection.from));
   const toIndex = indexById.get(String(connection.to));
   if (fromIndex == null || toIndex == null) return null;
 
-  const fromBox = resolveBoxSpec(boxes[fromIndex], fromIndex, boxes.length);
-  const toBox = resolveBoxSpec(boxes[toIndex], toIndex, boxes.length);
-  const points = resolveConnectorPoints(fromBox, toBox);
+  const fromBox = resolveBoxSpec(boxes[fromIndex], fromIndex, boxes.length, layoutOptions);
+  const toBox = resolveBoxSpec(boxes[toIndex], toIndex, boxes.length, layoutOptions);
+  const points = resolveConnectorPoints(fromBox, toBox, layoutOptions);
 
   return {
     id: connectionId(connection),
@@ -79,12 +84,13 @@ function resolveLineSpec(
 export function getLineAnimationEntries(
   connections: ReadonlyArray<DrawingStageConnection>,
   objects: ReadonlyArray<BoxCreationObject>,
+  options?: BoxLayoutOptions,
 ): Array<{ id: string; animation: { durationMs: number; delayMs: number } }> {
   const entries: Array<{ id: string; animation: { durationMs: number; delayMs: number } }> =
     [];
 
   for (const connection of connections) {
-    const spec = resolveLineSpec(connection, objects);
+    const spec = resolveLineSpec(connection, objects, options);
     if (!spec) continue;
     entries.push({ id: spec.id, animation: spec.animation });
   }
@@ -95,11 +101,17 @@ export function getLineAnimationEntries(
 export default function LineCreation({
   connection,
   objects,
+  mathMode = false,
 }: {
   connection: DrawingStageConnection;
   objects: ReadonlyArray<BoxCreationObject>;
+  mathMode?: boolean;
 }) {
-  const spec = resolveLineSpec(connection, objects);
+  const spec = resolveLineSpec(
+    connection,
+    objects,
+    mathMode ? { mathMode: true } : undefined,
+  );
   if (!spec) return null;
 
   return (

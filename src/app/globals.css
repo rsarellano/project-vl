@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "katex/dist/katex.min.css";
 
 :root {
   --background: #ffffff;
@@ -16,4 +17,46 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Chalkboard KaTeX skin — light chalk on dark board (HTML + SVG foreignObject). */
+.katex-chalk {
+  color: #f2f2ea;
+}
+
+.katex-chalk .katex {
+  color: #f2f2ea;
+  font-size: 1.06em;
+  filter: url(#vl-chalk-text-grain) contrast(1.06)
+    drop-shadow(0 0 0.35px rgba(255, 255, 255, 0.45))
+    drop-shadow(0 0 1.2px rgba(255, 255, 255, 0.12));
+  opacity: 0.94;
+}
+
+.katex-chalk .katex .mord,
+.katex-chalk .katex .mop,
+.katex-chalk .katex .mbin,
+.katex-chalk .katex .mrel,
+.katex-chalk .katex .mopen,
+.katex-chalk .katex .mclose,
+.katex-chalk .katex .mpunct {
+  color: inherit;
+}
+
+.katex-chalk-preview {
+  border-radius: 0.75rem;
+  border: 2px solid rgba(242, 242, 234, 0.2);
+  background: linear-gradient(165deg, #2f4f3f 0%, #243d32 100%);
+  padding: 0.75rem 1rem;
+}
+
+.katex-chalk-preview .katex-chalk .katex {
+  filter: contrast(1.08)
+    drop-shadow(0 0 0.4px rgba(255, 255, 255, 0.5))
+    drop-shadow(0 0 1.4px rgba(255, 255, 255, 0.14));
+}
+
+/* Step-box equations — slightly larger; top-level operator gaps come from LaTeX glue. */
+.katex-step-box .katex {
+  font-size: 1.06em;
 }

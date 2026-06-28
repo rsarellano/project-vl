@@ -7,7 +7,7 @@ export function SiteNav() {
   const { user, status, logout } = useAuth();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
+    <header className="sticky top-0 z-50 border-b border-red-200/60 bg-red-50/90 backdrop-blur dark:border-red-900/50 dark:bg-red-950/90">
       <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link
           href="/"
